@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Daily Light</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
   <link rel="stylesheet" href="css/myGoogleFont.css?v=4">
 </head>
 
@@ -18,7 +18,12 @@
       <header class="border-bottom bg-body-tertiary sticky-top">
         <div class="container py-3">
           <div class="d-flex align-items-center justify-content-between gap-3">
-            <h1 class="h4 mb-0">Daily Light</h1>
+            <div class="d-flex align-items-center gap-3">
+              <h1 class="h4 mb-0">{{ biblePage ? '聖經' : 'Daily Light' }}</h1>
+              <!-- 聖經使用獨立網址，target="_blank" 會開啟新分頁。 -->
+              <a v-if="!biblePage" class="btn btn-outline-primary" href="bible.html"
+                target="_blank" rel="noopener">聖經</a>
+            </div>
 
             <!-- 桌面版篩選設定。 -->
             <div class="d-none d-xl-flex align-items-end justify-content-end flex-wrap gap-2" aria-label="內容篩選">
@@ -39,24 +44,24 @@
                   <option value="KJV" :disabled="filters.translation === 'KJV'">KJV</option>
                 </select>
               </div>
-              <div>
+              <div v-if="filters.style !== 'style4'">
                 <label for="desktopDate" class="form-label small mb-1">日期</label>
                 <select id="desktopDate" v-model="filters.date" class="form-select">
                   <option v-for="date in dates" :key="date" :value="date">{{ date }}</option>
                 </select>
               </div>
-              <div v-if="filters.style !== 'style3'">
+              <div v-if="filters.style === 'style1' || filters.style === 'style2'">
                 <label for="desktopPeriod" class="form-label small mb-1">時段</label>
                 <select id="desktopPeriod" v-model="filters.period" class="form-select">
                   <option value="morning">Morning</option>
                   <option value="evening">Evening</option>
                 </select>
               </div>
-              <div>
-                <label for="desktopStyle" class="form-label small mb-1">呈現方式</label>
+              <div v-if="!biblePage">
+                <label for="desktopStyle" class="form-label small mb-1">閱讀模式</label>
                 <select id="desktopStyle" v-model="filters.style" class="form-select">
-                  <option value="style1">每日亮光(原文)</option>
-                  <option value="style2">每日亮光(譯本)</option>
+                  <option value="style1">每日亮光・原文</option>
+                  <option value="style2">每日亮光・譯本對照</option>
                   <option value="style3">屬靈健保書</option>
                 </select>
               </div>
@@ -106,16 +111,16 @@
         </div>
       </header>
 
-      <!-- 三種內容呈現模式共用的主要區域。 -->
+      <!-- 四種閱讀模式共用的主要區域。 -->
       <main class="container py-4">
         <div v-if="loading" class="alert alert-info" role="status">正在載入資料……</div>
         <div v-else-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
-        <div v-else-if="filters.style !== 'style3' && !currentEntry" class="alert alert-warning">找不到所選日期與時段的內容。</div>
+        <div v-else-if="['style1', 'style2'].includes(filters.style) && !currentEntry" class="alert alert-warning">找不到所選日期與時段的內容。</div>
         <div v-else-if="filters.style === 'style3' && !currentBannerIndexEntry" class="alert alert-warning">
           找不到所選日期的屬靈健保書內容。</div>
 
         <article v-else id="dailyContent" aria-live="polite">
-          <!-- 每日亮光(原文) -->
+          <!-- 每日亮光・原文 -->
           <template v-if="filters.style === 'style1'">
             <p class="text-uppercase text-body-secondary mb-2">{{ currentEntry.date }} · {{ currentEntry.period }}</p>
             <h2 class="display-6">{{ currentEntry.title }}</h2>
@@ -123,7 +128,7 @@
             <p class="daily-text">{{ currentEntry.text }}</p>
           </template>
 
-          <!-- 每日亮光(譯本) -->
+          <!-- 每日亮光・譯本對照 -->
           <template v-else-if="filters.style === 'style2'">
             <p class="text-uppercase text-body-secondary mb-2">{{ currentEntry.date }} · {{ currentEntry.period }}</p>
             <p class="h5 text-primary">{{ currentEntry.mainVerse }}</p>
@@ -146,7 +151,7 @@
           </template>
 
           <!-- 屬靈健保書 -->
-          <template v-else>
+          <template v-else-if="filters.style === 'style3'">
             <p class="text-uppercase text-body-secondary mb-2">{{ filters.date }}</p>
             <h2 class="h3 mb-4">屬靈健保書</h2>
             <div v-if="styleLoading" class="alert alert-info" role="status">正在載入 {{ selectedTranslations.join('、') }} 經文……</div>
@@ -167,11 +172,65 @@
               </section>
             </div>
           </template>
+
+          <!-- 聖經：先選擇書卷，再選章數，最後顯示整章經文。 -->
+          <template v-else>
+            <h2 class="h3 mb-4">聖經</h2>
+
+            <section class="mb-5" aria-labelledby="oldTestamentTitle">
+              <h3 id="oldTestamentTitle" class="h5 text-primary mb-3">舊約（39卷）</h3>
+              <div class="bible-book-grid">
+                <button v-for="book in oldTestamentBooks" :key="book.name" type="button"
+                  class="btn btn-outline-secondary bible-book-button"
+                  :class="{ active: selectedBibleBookName === book.name }" @click="selectBibleBook(book.name)">
+                  <span>{{ book.zh }}</span><small>{{ book.name }}</small>
+                </button>
+              </div>
+            </section>
+
+            <section aria-labelledby="newTestamentTitle">
+              <h3 id="newTestamentTitle" class="h5 text-primary mb-3">新約（27卷）</h3>
+              <div class="bible-book-grid">
+                <button v-for="book in newTestamentBooks" :key="book.name" type="button"
+                  class="btn btn-outline-secondary bible-book-button"
+                  :class="{ active: selectedBibleBookName === book.name }" @click="selectBibleBook(book.name)">
+                  <span>{{ book.zh }}</span><small>{{ book.name }}</small>
+                </button>
+              </div>
+            </section>
+
+            <div v-if="styleLoading" class="alert alert-info mt-4" role="status">正在載入 {{ selectedTranslations.join('、') }} 經文……</div>
+            <div v-else-if="styleError" class="alert alert-danger mt-4" role="alert">{{ styleError }}</div>
+
+            <section v-if="selectedBibleBook && bibleChapterNumbers.length" id="bibleChapters" class="mt-5 scroll-anchor">
+              <h3 class="h4 mb-3">{{ selectedBibleBook.zh }} <small class="text-body-secondary">{{ selectedBibleBook.name }}</small></h3>
+              <div class="d-flex flex-wrap gap-2" aria-label="章節選擇">
+                <button v-for="chapter in bibleChapterNumbers" :key="chapter" type="button"
+                  class="btn btn-outline-secondary chapter-button"
+                  :class="{ active: selectedBibleChapter === chapter }" @click="selectBibleChapter(chapter)">
+                  {{ chapter }}章
+                </button>
+              </div>
+            </section>
+
+            <section v-if="bibleChapterVerses.length" id="bibleChapterContent" class="mt-5 scroll-anchor">
+              <h3 class="h4 text-primary mb-4">{{ selectedBibleBook.zh }} 第 {{ selectedBibleChapter }} 章</h3>
+              <ol class="bible-chapter-list list-unstyled">
+                <li v-for="verse in bibleChapterVerses" :key="verse.verse">
+                  <strong v-if="filters.referenceDisplay !== 'hide'" class="verse-number"
+                    :class="{ 'reference-compact': filters.referenceDisplay === 'compact' }">{{ verse.verse }}</strong>
+                  <div class="verse-lines">
+                    <span v-for="item in verse.translations" :key="item.name" class="verse-text d-block">{{ item.text }}</span>
+                  </div>
+                </li>
+              </ol>
+            </section>
+          </template>
         </article>
       </main>
 
       <!-- 顯示目前模式使用的經文索引按鈕。 -->
-      <footer class="border-top bg-body-tertiary">
+      <footer v-if="filters.style !== 'style4'" class="border-top bg-body-tertiary">
         <div class="container py-4">
           <h2 class="h5">使用的經文</h2>
           <p class="text-body-secondary small">點選經文按鈕查看 {{ selectedTranslations.join('、') }} 詳細內容。</p>
@@ -191,7 +250,13 @@
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start gap-3">
               <h2 class="h5 card-title">{{ verseError ? '無法顯示經文' : selectedVerse.reference }}</h2>
-              <button type="button" class="btn-close" aria-label="關閉詳細經文" @click="clearVerseDetail"></button>
+              <div class="d-flex align-items-center gap-2">
+                <!-- 將目前經節的書卷與章數帶到獨立的 bible.html。 -->
+                <a v-if="selectedVerse" class="btn btn-sm btn-outline-primary"
+                  :href="getBibleChapterUrl(selectedVerse.bookName, selectedVerse.chapter)"
+                  target="_blank" rel="noopener">more</a>
+                <button type="button" class="btn-close" aria-label="關閉詳細經文" @click="clearVerseDetail"></button>
+              </div>
             </div>
             <p v-if="verseError" class="card-text mb-0">{{ verseError }}</p>
             <template v-else>
@@ -228,24 +293,24 @@
                     <option value="KJV" :disabled="mobileFilters.translation === 'KJV'">KJV</option>
                   </select>
                 </div>
-                <div class="mb-3">
+                <div v-if="mobileFilters.style !== 'style4'" class="mb-3">
                   <label for="mobileDate" class="form-label">日期</label>
                   <select id="mobileDate" v-model="mobileFilters.date" class="form-select form-select-lg">
                     <option v-for="date in dates" :key="date" :value="date">{{ date }}</option>
                   </select>
                 </div>
-                <div v-if="mobileFilters.style !== 'style3'" class="mb-3">
+                <div v-if="mobileFilters.style === 'style1' || mobileFilters.style === 'style2'" class="mb-3">
                   <label for="mobilePeriod" class="form-label">時段</label>
                   <select id="mobilePeriod" v-model="mobileFilters.period" class="form-select form-select-lg">
                     <option value="morning">Morning</option>
                     <option value="evening">Evening</option>
                   </select>
                 </div>
-                <div>
-                  <label for="mobileStyle" class="form-label">呈現方式</label>
+                <div v-if="!biblePage">
+                  <label for="mobileStyle" class="form-label">閱讀模式</label>
                   <select id="mobileStyle" v-model="mobileFilters.style" class="form-select form-select-lg">
-                    <option value="style1">每日亮光(原文)</option>
-                    <option value="style2">每日亮光(譯本)</option>
+                    <option value="style1">每日亮光・原文</option>
+                    <option value="style2">每日亮光・譯本對照</option>
                     <option value="style3">屬靈健保書</option>
                   </select>
                 </div>
@@ -301,7 +366,7 @@
   <script src="https://cdn.jsdelivr.net/npm/axios@1.11.0/dist/axios.min.js"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <!-- <script src="js/vue.global.js"></script> -->
-  <script src="js/main.js?v=3"></script>
+  <script src="js/main.js?v=8"></script>
 </body>
 
 </html>

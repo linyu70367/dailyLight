@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>聖經｜Daily Light</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/myGoogleFont.css?v=4">
+</head>
+
+<body>
+  <div id="app">
+    <!-- 選單的 value 直接成為 app-shell 的字體大小與主題 class。 -->
+    <div class="app-shell" :class="[selectedFont, filters.fontSize, filters.theme]">
+      <header class="border-bottom bg-body-tertiary sticky-top">
+        <div class="container py-3">
+          <div class="d-flex align-items-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3 align-self-center">
+              <h1 class="h4 mb-0">聖經</h1>
+              <a class="btn btn-outline-primary" href="index.html">Daily Light</a>
+            </div>
+
+            <!-- 桌面版設定與 index.html 使用相同的 xl 顯示斷點。 -->
+            <div class="d-none d-xl-flex flex-wrap align-items-end justify-content-end gap-2">
+              <div>
+                <label for="bibleTranslation" class="form-label small mb-1">譯本</label>
+                <select id="bibleTranslation" v-model="filters.translation" class="form-select">
+                  <option value="ChiUn">ChiUn</option>
+                  <option value="ChiUnL">ChiUnL</option>
+                  <option value="KJV">KJV</option>
+                </select>
+              </div>
+              <div>
+                <label for="bibleTranslation2" class="form-label small mb-1">譯本二</label>
+                <select id="bibleTranslation2" v-model="filters.translation2" class="form-select">
+                  <option value="">不使用</option>
+                  <option value="ChiUn" :disabled="filters.translation === 'ChiUn'">ChiUn</option>
+                  <option value="ChiUnL" :disabled="filters.translation === 'ChiUnL'">ChiUnL</option>
+                  <option value="KJV" :disabled="filters.translation === 'KJV'">KJV</option>
+                </select>
+              </div>
+              <div>
+                <label for="bibleFont" class="form-label small mb-1">字體</label>
+                <select id="bibleFont" v-model="selectedFont" class="form-select">
+                  <option value="">系統預設</option>
+                  <option value="zen-old-mincho">傳統美感</option>
+                  <option value="zen-maru-gothic">圓體</option>
+                  <option value="bpmf-iansui-regular">硬筆手寫，注音</option>
+                  <option value="bpmf-huninn-regular">圓體，注音</option>
+                </select>
+              </div>
+              <div>
+                <label for="bibleFontSize" class="form-label small mb-1">字體大小</label>
+                <select id="bibleFontSize" v-model="filters.fontSize" class="form-select">
+                  <option value="font-size-small">小</option>
+                  <option value="font-size-normal">標準</option>
+                  <option value="font-size-large">大</option>
+                  <option value="font-size-xlarge">特大</option>
+                </select>
+              </div>
+              <div>
+                <label for="bibleReferenceDisplay" class="form-label small mb-1">經節顯示</label>
+                <select id="bibleReferenceDisplay" v-model="filters.referenceDisplay" class="form-select">
+                  <option value="show">顯示</option>
+                  <option value="hide">隱藏</option>
+                  <option value="compact">縮小</option>
+                </select>
+              </div>
+              <div>
+                <label for="bibleTheme" class="form-label small mb-1">主題</label>
+                <select id="bibleTheme" v-model="filters.theme" class="form-select">
+                  <option value="theme-classic">經典暖光</option>
+                  <option value="theme-ocean">海洋晨曦</option>
+                  <option value="theme-forest">森林安息</option>
+                  <option value="theme-night">靜夜星光</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 手機和平板改用三條橫線開啟設定視窗。 -->
+            <button class="btn btn-outline-primary d-xl-none menu-button" type="button" data-bs-toggle="modal"
+              data-bs-target="#bibleFilterModal" aria-label="開啟篩選內容" title="篩選內容" @click="prepareMobileFilters">
+              <span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main id="dailyContent" class="container py-4" aria-live="polite">
+        <div v-if="loading" class="alert alert-info" role="status">正在準備聖經資料……</div>
+        <div v-else-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
+        <template v-else>
+          <!-- 先顯示全部66卷，點擊後才載入所需的單一書卷 JSON。 -->
+          <section class="mb-5" aria-labelledby="oldTestamentTitle">
+            <h2 id="oldTestamentTitle" class="h5 text-primary mb-3">舊約（39卷）</h2>
+            <div class="bible-book-grid">
+              <button v-for="book in oldTestamentBooks" :key="book.name" type="button"
+                class="btn btn-outline-secondary bible-book-button"
+                :class="{ active: selectedBibleBookName === book.name }" @click="selectBibleBook(book.name)">
+                <span>{{ book.zh }}</span><small>{{ book.name }}</small>
+              </button>
+            </div>
+          </section>
+
+          <section aria-labelledby="newTestamentTitle">
+            <h2 id="newTestamentTitle" class="h5 text-primary mb-3">新約（27卷）</h2>
+            <div class="bible-book-grid">
+              <button v-for="book in newTestamentBooks" :key="book.name" type="button"
+                class="btn btn-outline-secondary bible-book-button"
+                :class="{ active: selectedBibleBookName === book.name }" @click="selectBibleBook(book.name)">
+                <span>{{ book.zh }}</span><small>{{ book.name }}</small>
+              </button>
+            </div>
+          </section>
+
+          <div v-if="styleLoading" class="alert alert-info mt-4" role="status">正在載入 {{ selectedTranslations.join('、') }} 經文……</div>
+          <div v-else-if="styleError" class="alert alert-danger mt-4" role="alert">{{ styleError }}</div>
+
+          <section v-if="selectedBibleBook && bibleChapterNumbers.length" id="bibleChapters" class="mt-5 scroll-anchor">
+            <h2 class="h4 mb-3">{{ selectedBibleBook.zh }} <small class="text-body-secondary">{{ selectedBibleBook.name }}</small></h2>
+            <div class="d-flex flex-wrap gap-2" aria-label="章節選擇">
+              <button v-for="chapter in bibleChapterNumbers" :key="chapter" type="button"
+                class="btn btn-outline-secondary chapter-button"
+                :class="{ active: selectedBibleChapter === chapter }" @click="selectBibleChapter(chapter)">
+                {{ chapter }}章
+              </button>
+            </div>
+          </section>
+
+          <section v-if="bibleChapterVerses.length" id="bibleChapterContent" class="mt-5 scroll-anchor">
+            <h2 class="h4 text-primary mb-4">{{ selectedBibleBook.zh }} 第 {{ selectedBibleChapter }} 章</h2>
+            <ol class="bible-chapter-list list-unstyled">
+              <li v-for="verse in bibleChapterVerses" :key="verse.verse">
+                <strong v-if="filters.referenceDisplay !== 'hide'" class="verse-number"
+                  :class="{ 'reference-compact': filters.referenceDisplay === 'compact' }">{{ verse.verse }}</strong>
+                <div class="verse-lines">
+                  <span v-for="item in verse.translations" :key="item.name" class="verse-text d-block">{{ item.text }}</span>
+                </div>
+              </li>
+            </ol>
+          </section>
+        </template>
+      </main>
+
+      <!-- 手機版設定：按下套用後才更新正式 filters。 -->
+      <div class="modal fade" id="bibleFilterModal" tabindex="-1" aria-labelledby="bibleFilterModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 class="modal-title fs-5" id="bibleFilterModalLabel">篩選內容</h2>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+            </div>
+            <form @submit.prevent="applyMobileFilters">
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="mobileBibleTranslation" class="form-label">譯本</label>
+                  <select id="mobileBibleTranslation" v-model="mobileFilters.translation" class="form-select form-select-lg">
+                    <option value="ChiUn">ChiUn</option>
+                    <option value="ChiUnL">ChiUnL</option>
+                    <option value="KJV">KJV</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="mobileBibleTranslation2" class="form-label">譯本二</label>
+                  <select id="mobileBibleTranslation2" v-model="mobileFilters.translation2" class="form-select form-select-lg">
+                    <option value="">不使用</option>
+                    <option value="ChiUn" :disabled="mobileFilters.translation === 'ChiUn'">ChiUn</option>
+                    <option value="ChiUnL" :disabled="mobileFilters.translation === 'ChiUnL'">ChiUnL</option>
+                    <option value="KJV" :disabled="mobileFilters.translation === 'KJV'">KJV</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="mobileBibleFont" class="form-label">字體</label>
+                  <select id="mobileBibleFont" v-model="selectedFont" class="form-select form-select-lg">
+                    <option value="">系統預設</option>
+                    <option value="zen-old-mincho">傳統美感</option>
+                    <option value="zen-maru-gothic">圓體</option>
+                    <option value="bpmf-iansui-regular">硬筆手寫，注音</option>
+                    <option value="bpmf-huninn-regular">圓體，注音</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="mobileBibleFontSize" class="form-label">字體大小</label>
+                  <select id="mobileBibleFontSize" v-model="mobileFilters.fontSize" class="form-select form-select-lg">
+                    <option value="font-size-small">小</option>
+                    <option value="font-size-normal">標準</option>
+                    <option value="font-size-large">大</option>
+                    <option value="font-size-xlarge">特大</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="mobileBibleReferenceDisplay" class="form-label">經節顯示</label>
+                  <select id="mobileBibleReferenceDisplay" v-model="mobileFilters.referenceDisplay" class="form-select form-select-lg">
+                    <option value="show">顯示</option>
+                    <option value="hide">隱藏</option>
+                    <option value="compact">縮小</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="mobileBibleTheme" class="form-label">主題</label>
+                  <select id="mobileBibleTheme" v-model="mobileFilters.theme" class="form-select form-select-lg">
+                    <option value="theme-classic">經典暖光</option>
+                    <option value="theme-ocean">海洋晨曦</option>
+                    <option value="theme-forest">森林安息</option>
+                    <option value="theme-night">靜夜星光</option>
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" class="btn btn-primary">套用</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.11.0/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="js/main.js?v=8"></script>
+</body>
+
+</html>

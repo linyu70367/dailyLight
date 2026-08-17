@@ -186,6 +186,56 @@ body {
   border-color: var(--bs-btn-active-border-color);
 }
 
+/* 66 卷書卷以自適應格狀按鈕呈現，手機也能保持易點選。 */
+.bible-book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.65rem;
+}
+
+.bible-book-button {
+  min-height: 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+}
+
+.bible-book-button small {
+  margin-top: 0.15rem;
+  opacity: 0.72;
+}
+
+.bible-book-button.active,
+.chapter-button.active {
+  color: var(--theme-background);
+  background-color: var(--theme-accent);
+  border-color: var(--theme-accent);
+}
+
+.bible-chapter-list {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.bible-chapter-list > li {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.verse-number {
+  color: var(--theme-accent);
+  text-align: right;
+  line-height: 1.8;
+}
+
+.scroll-anchor {
+  scroll-margin-top: 7rem;
+}
+
 @media (max-width: 1199.98px) {
   .modal .form-select-lg {
     min-height: 3.25rem;
