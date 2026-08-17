@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Light</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/myGoogleFont.css?v=4">
+</head>
+
+<body>
+  <!-- 字體選單的 value 直接作為 #app 的 CSS class。 -->
+  <div id="app">
+    <!-- 字體、字體大小與主題的 value 直接成為 app-shell 的 CSS class。 -->
+    <div class="app-shell" :class="[selectedFont, filters.fontSize, filters.theme]">
+      <header class="border-bottom bg-body-tertiary sticky-top">
+        <div class="container py-3">
+          <div class="d-flex align-items-center justify-content-between gap-3">
+            <h1 class="h4 mb-0">Daily Light</h1>
+
+            <!-- 桌面版篩選設定。 -->
+            <div class="d-none d-xl-flex align-items-end justify-content-end flex-wrap gap-2" aria-label="內容篩選">
+              <div>
+                <label for="desktopTranslation" class="form-label small mb-1">譯本</label>
+                <select id="desktopTranslation" v-model="filters.translation" class="form-select">
+                  <option value="ChiUn">ChiUn</option>
+                  <option value="ChiUnL">ChiUnL</option>
+                  <option value="KJV">KJV</option>
+                </select>
+              </div>
+              <div>
+                <label for="desktopTranslation2" class="form-label small mb-1">譯本二</label>
+                <select id="desktopTranslation2" v-model="filters.translation2" class="form-select">
+                  <option value="">不使用</option>
+                  <option value="ChiUn" :disabled="filters.translation === 'ChiUn'">ChiUn</option>
+                  <option value="ChiUnL" :disabled="filters.translation === 'ChiUnL'">ChiUnL</option>
+                  <option value="KJV" :disabled="filters.translation === 'KJV'">KJV</option>
+                </select>
+              </div>
+              <div>
+                <label for="desktopDate" class="form-label small mb-1">日期</label>
+                <select id="desktopDate" v-model="filters.date" class="form-select">
+                  <option v-for="date in dates" :key="date" :value="date">{{ date }}</option>
+                </select>
+              </div>
+              <div v-if="filters.style !== 'style3'">
+                <label for="desktopPeriod" class="form-label small mb-1">時段</label>
+                <select id="desktopPeriod" v-model="filters.period" class="form-select">
+                  <option value="morning">Morning</option>
+                  <option value="evening">Evening</option>
+                </select>
+              </div>
+              <div>
+                <label for="desktopStyle" class="form-label small mb-1">呈現方式</label>
+                <select id="desktopStyle" v-model="filters.style" class="form-select">
+                  <option value="style1">每日亮光(原文)</option>
+                  <option value="style2">每日亮光(譯本)</option>
+                  <option value="style3">屬靈健保書</option>
+                </select>
+              </div>
+              <div>
+                <label for="desktopFont" class="form-label small mb-1">字體</label>
+                <select id="desktopFont" v-model="selectedFont" class="form-select">
+                  <option value="" selected>系統預設</option>
+                  <option value="zen-old-mincho">傳統美感</option>
+                  <option value="zen-maru-gothic">圓體</option>
+                  <option value="bpmf-iansui-regular">硬筆手寫，注音</option>
+                  <option value="bpmf-huninn-regular">圓體，注音</option>
+                </select>
+              </div>
+              <div>
+                <label for="desktopFontSize" class="form-label small mb-1">字體大小</label>
+                <select id="desktopFontSize" v-model="filters.fontSize" class="form-select">
+                  <option value="font-size-small">小</option>
+                  <option value="font-size-normal">標準</option>
+                  <option value="font-size-large">大</option>
+                  <option value="font-size-xlarge">特大</option>
+                </select>
+              </div>
+              <div>
+                <label for="desktopReferenceDisplay" class="form-label small mb-1">經節顯示</label>
+                <select id="desktopReferenceDisplay" v-model="filters.referenceDisplay" class="form-select">
+                  <option value="show">顯示</option>
+                  <option value="hide">隱藏</option>
+                  <option value="compact">縮小</option>
+                </select>
+              </div>
+              <div>
+                <label for="desktopTheme" class="form-label small mb-1">主題</label>
+                <select id="desktopTheme" v-model="filters.theme" class="form-select">
+                  <option value="theme-classic">經典暖光</option>
+                  <option value="theme-ocean">海洋晨曦</option>
+                  <option value="theme-forest">森林安息</option>
+                  <option value="theme-night">靜夜星光</option>
+                </select>
+              </div>
+            </div>
+
+            <button class="btn btn-outline-primary d-xl-none menu-button" type="button" data-bs-toggle="modal"
+              data-bs-target="#filterModal" aria-label="開啟篩選內容" title="篩選內容" @click="prepareMobileFilters">
+              <span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- 三種內容呈現模式共用的主要區域。 -->
+      <main class="container py-4">
+        <div v-if="loading" class="alert alert-info" role="status">正在載入資料……</div>
+        <div v-else-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
+        <div v-else-if="filters.style !== 'style3' && !currentEntry" class="alert alert-warning">找不到所選日期與時段的內容。</div>
+        <div v-else-if="filters.style === 'style3' && !currentBannerIndexEntry" class="alert alert-warning">
+          找不到所選日期的屬靈健保書內容。</div>
+
+        <article v-else id="dailyContent" aria-live="polite">
+          <!-- 每日亮光(原文) -->
+          <template v-if="filters.style === 'style1'">
+            <p class="text-uppercase text-body-secondary mb-2">{{ currentEntry.date }} · {{ currentEntry.period }}</p>
+            <h2 class="display-6">{{ currentEntry.title }}</h2>
+            <p class="lead text-primary">{{ currentEntry.mainVerse }}</p>
+            <p class="daily-text">{{ currentEntry.text }}</p>
+          </template>
+
+          <!-- 每日亮光(譯本) -->
+          <template v-else-if="filters.style === 'style2'">
+            <p class="text-uppercase text-body-secondary mb-2">{{ currentEntry.date }} · {{ currentEntry.period }}</p>
+            <p class="h5 text-primary">{{ currentEntry.mainVerse }}</p>
+            <div v-if="translatedMainVerseTexts.length" class="mb-4">
+              <p v-for="item in translatedMainVerseTexts" :key="item.name" class="h3 translation-text">{{ item.text }}</p>
+            </div>
+            <div v-if="styleLoading" class="alert alert-info" role="status">正在載入 {{ selectedTranslations.join('、') }} 經文……</div>
+            <div v-else-if="styleError" class="alert alert-danger" role="alert">{{ styleError }}</div>
+            <ol v-else class="verse-list ps-4">
+              <li v-for="(verse, verseIndex) in translatedVerses"
+                :key="`${selectedTranslations.join('-')}-${verse.reference}-${verseIndex}`">
+                <strong
+                  v-if="filters.referenceDisplay !== 'hide'"
+                  class="d-block mb-1"
+                  :class="{ 'reference-compact': filters.referenceDisplay === 'compact' }"
+                >{{ verse.reference }}</strong>
+                <span v-for="item in verse.translations" :key="item.name" class="verse-text d-block">{{ item.text }}</span>
+              </li>
+            </ol>
+          </template>
+
+          <!-- 屬靈健保書 -->
+          <template v-else>
+            <p class="text-uppercase text-body-secondary mb-2">{{ filters.date }}</p>
+            <h2 class="h3 mb-4">屬靈健保書</h2>
+            <div v-if="styleLoading" class="alert alert-info" role="status">正在載入 {{ selectedTranslations.join('、') }} 經文……</div>
+            <div v-else-if="styleError" class="alert alert-danger" role="alert">{{ styleError }}</div>
+            <div v-else class="d-grid gap-4">
+              <section v-for="section in bannerTranslatedSections" :key="section.reference">
+                <h3 class="h5 text-primary">{{ section.reference }}</h3>
+                <ol class="verse-list ps-4 mb-0">
+                  <li v-for="verse in section.verses" :key="verse.reference">
+                    <strong
+                      v-if="filters.referenceDisplay !== 'hide'"
+                      class="d-block mb-1"
+                      :class="{ 'reference-compact': filters.referenceDisplay === 'compact' }"
+                    >{{ verse.reference }}</strong>
+                    <span v-for="item in verse.translations" :key="item.name" class="verse-text d-block">{{ item.text }}</span>
+                  </li>
+                </ol>
+              </section>
+            </div>
+          </template>
+        </article>
+      </main>
+
+      <!-- 顯示目前模式使用的經文索引按鈕。 -->
+      <footer class="border-top bg-body-tertiary">
+        <div class="container py-4">
+          <h2 class="h5">使用的經文</h2>
+          <p class="text-body-secondary small">點選經文按鈕查看 {{ selectedTranslations.join('、') }} 詳細內容。</p>
+          <div class="d-flex flex-wrap gap-2">
+            <button v-for="(item, itemIndex) in activeIndexItems"
+              :key="`${item.name}-${item.chapters}-${item.verse}-${itemIndex}`" type="button"
+              class="btn btn-outline-secondary reference-button" :class="{ active: isSelectedVerse(item) }"
+              :disabled="verseLoading" @click="showVerseDetail(item)">
+              {{ item.name }} {{ item.chapters }}:{{ item.verse }}
+            </button>
+          </div>
+        </div>
+      </footer>
+
+      <section v-if="selectedVerse || verseError" id="verseDetailSection" class="container py-4" aria-live="polite">
+        <div class="card">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+              <h2 class="h5 card-title">{{ verseError ? '無法顯示經文' : selectedVerse.reference }}</h2>
+              <button type="button" class="btn-close" aria-label="關閉詳細經文" @click="clearVerseDetail"></button>
+            </div>
+            <p v-if="verseError" class="card-text mb-0">{{ verseError }}</p>
+            <template v-else>
+              <p v-for="item in selectedVerse.translations" :key="item.name" class="card-text translation-text">{{ item.text }}</p>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <!-- 手機版篩選視窗：按下「套用」後才更新正式設定。 -->
+      <div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2 class="modal-title fs-5" id="filterModalLabel">篩選內容</h2>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+            </div>
+            <form @submit.prevent="applyMobileFilters">
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="mobileTranslation" class="form-label">譯本</label>
+                  <select id="mobileTranslation" v-model="mobileFilters.translation" class="form-select form-select-lg">
+                    <option value="ChiUn">ChiUn</option>
+                    <option value="ChiUnL">ChiUnL</option>
+                    <option value="KJV">KJV</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="mobileTranslation2" class="form-label">譯本二</label>
+                  <select id="mobileTranslation2" v-model="mobileFilters.translation2" class="form-select form-select-lg">
+                    <option value="">不使用</option>
+                    <option value="ChiUn" :disabled="mobileFilters.translation === 'ChiUn'">ChiUn</option>
+                    <option value="ChiUnL" :disabled="mobileFilters.translation === 'ChiUnL'">ChiUnL</option>
+                    <option value="KJV" :disabled="mobileFilters.translation === 'KJV'">KJV</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="mobileDate" class="form-label">日期</label>
+                  <select id="mobileDate" v-model="mobileFilters.date" class="form-select form-select-lg">
+                    <option v-for="date in dates" :key="date" :value="date">{{ date }}</option>
+                  </select>
+                </div>
+                <div v-if="mobileFilters.style !== 'style3'" class="mb-3">
+                  <label for="mobilePeriod" class="form-label">時段</label>
+                  <select id="mobilePeriod" v-model="mobileFilters.period" class="form-select form-select-lg">
+                    <option value="morning">Morning</option>
+                    <option value="evening">Evening</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="mobileStyle" class="form-label">呈現方式</label>
+                  <select id="mobileStyle" v-model="mobileFilters.style" class="form-select form-select-lg">
+                    <option value="style1">每日亮光(原文)</option>
+                    <option value="style2">每日亮光(譯本)</option>
+                    <option value="style3">屬靈健保書</option>
+                  </select>
+                </div>
+                <div class="mt-3">
+                  <label for="mobileFont" class="form-label">字體</label>
+                  <select id="mobileFont" v-model="selectedFont" class="form-select form-select-lg">
+                    <option value="" selected>系統預設</option>
+                    <option value="zen-old-mincho">傳統美感</option>
+                    <option value="zen-maru-gothic">圓體</option>
+                    <option value="bpmf-iansui-regular">硬筆手寫，注音</option>
+                    <option value="bpmf-huninn-regular">圓體，注音</option>
+                  </select>
+                </div>
+                <div class="mt-3">
+                  <label for="mobileFontSize" class="form-label">字體大小</label>
+                  <select id="mobileFontSize" v-model="mobileFilters.fontSize" class="form-select form-select-lg">
+                    <option value="font-size-small">小</option>
+                    <option value="font-size-normal">標準</option>
+                    <option value="font-size-large">大</option>
+                    <option value="font-size-xlarge">特大</option>
+                  </select>
+                </div>
+                <div class="mt-3">
+                  <label for="mobileReferenceDisplay" class="form-label">經節顯示</label>
+                  <select id="mobileReferenceDisplay" v-model="mobileFilters.referenceDisplay" class="form-select form-select-lg">
+                    <option value="show">顯示</option>
+                    <option value="hide">隱藏</option>
+                    <option value="compact">縮小</option>
+                  </select>
+                </div>
+                <div class="mt-3">
+                  <label for="mobileTheme" class="form-label">主題</label>
+                  <select id="mobileTheme" v-model="mobileFilters.theme" class="form-select form-select-lg">
+                    <option value="theme-classic">經典暖光</option>
+                    <option value="theme-ocean">海洋晨曦</option>
+                    <option value="theme-forest">森林安息</option>
+                    <option value="theme-night">靜夜星光</option>
+                  </select>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" class="btn btn-primary">套用</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios@1.11.0/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <!-- <script src="js/vue.global.js"></script> -->
+  <script src="js/main.js?v=3"></script>
+</body>
+
+</html>

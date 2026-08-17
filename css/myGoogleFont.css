@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Bpmf+Huninn&family=Bpmf+Iansui&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Quicksand:wght@300..700&family=Zen+Maru+Gothic:wght@300;400;500;700;900&family=Zen+Old+Mincho:wght@400;500;600;700;900&display=swap');
+
+
+/* 中文字體
+傳統美感、清晰易讀
+(400/500/600/700/900) */
+.zen-old-mincho {
+  font-family: "Zen Old Mincho", serif;
+  font-weight: 400; 
+  font-style: normal;
+}
+
+/* 圓潤可愛
+(300/400/500/700/900) */
+.zen-maru-gothic {
+  font-family: "Zen Maru Gothic", sans-serif;
+  font-weight: 300; 
+  font-style: normal;
+}
+
+/* 硬筆手寫，注音 */
+.bpmf-iansui-regular {
+  font-family: "Bpmf Iansui", cursive;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* 圓體，注音 */
+.bpmf-huninn-regular {
+  font-family: "Bpmf Huninn", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* Bootstrap 的按鈕與表單元件也明確繼承 #app 選擇的字體。 */
+#app :is(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+/* 
+英文字體
+經典
+// <weight>: Use a value from 100 to 900
+// <uniquifier>: Use a unique and descriptive class name
+.inter-<uniquifier> {
+  font-family: "Inter", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: <weight>;
+  font-style: normal;
+}
+
+圓體
+// <weight>: Use a value from 300 to 700
+// <uniquifier>: Use a unique and descriptive class name
+.quicksand-<uniquifier> {
+  font-family: "Quicksand", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: <weight>;
+  font-style: normal;
+}
+ */
