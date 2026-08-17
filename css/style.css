@@ -176,6 +176,21 @@ body {
   margin-top: 0.45rem;
 }
 
+/* 「譯本二位置：並排」時，兩個譯本各使用一半寬度。 */
+.translations-side-by-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+/* 並排時由 Grid 的 gap 控制間距，不再使用上下排列的 margin。 */
+.translations-side-by-side .translation-text,
+.translations-side-by-side .verse-text {
+  min-width: 0;
+  margin-top: 0;
+}
+
 .verse-list li + li {
   margin-top: 1rem;
 }
@@ -224,6 +239,17 @@ body {
   grid-template-columns: 2.25rem minmax(0, 1fr);
   gap: 0.5rem;
   align-items: start;
+}
+
+/* 隱藏節數後只保留經文欄，經文就不會落入原本 2.25rem 的第一欄。 */
+.bible-chapter-list > li.reference-hidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* 經文文字填滿扣除節數欄位後的所有剩餘寬度。 */
+.verse-lines {
+  width: 100%;
+  min-width: 0;
 }
 
 .verse-number {
