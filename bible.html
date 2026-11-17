@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>聖經｜Daily Light</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=9">
   <link rel="stylesheet" href="css/myGoogleFont.css?v=4">
 </head>
 
@@ -32,18 +32,18 @@
               <div>
                 <label for="bibleTranslation" class="form-label small mb-1">譯本</label>
                 <select id="bibleTranslation" v-model="filters.translation" class="form-select">
-                  <option value="ChiUn">ChiUn</option>
-                  <option value="ChiUnL">ChiUnL</option>
-                  <option value="KJV">KJV</option>
+                  <option v-for="translation in translations" :key="translation.code" :value="translation.code">
+                    {{ translation.code }} | {{ translation.title }}
+                  </option>
                 </select>
               </div>
               <div>
                 <label for="bibleTranslation2" class="form-label small mb-1">譯本二</label>
                 <select id="bibleTranslation2" v-model="filters.translation2" class="form-select">
                   <option value="">不使用</option>
-                  <option value="ChiUn" :disabled="filters.translation === 'ChiUn'">ChiUn</option>
-                  <option value="ChiUnL" :disabled="filters.translation === 'ChiUnL'">ChiUnL</option>
-                  <option value="KJV" :disabled="filters.translation === 'KJV'">KJV</option>
+                  <option v-for="translation in translations" :key="translation.code" :value="translation.code" :disabled="filters.translation === translation.code">
+                    {{ translation.code }} | {{ translation.title }}
+                  </option>
                 </select>
               </div>
               <div>
@@ -145,10 +145,9 @@
             <h2 class="h4 text-primary mb-4">{{ selectedBibleBook.zh }} 第 {{ selectedBibleChapter }} 章</h2>
             <ol class="bible-chapter-list list-unstyled">
               <!-- 隱藏節數時改為單欄，避免經文被放進原本只有 2.25rem 的節數欄。 -->
-              <li v-for="verse in bibleChapterVerses" :key="verse.verse"
-                :class="{ 'reference-hidden': filters.referenceDisplay === 'hide' }">
+              <li v-for="verse in bibleChapterVerses" :key="verse.verse">
                 <strong v-if="filters.referenceDisplay !== 'hide'" class="verse-number"
-                  :class="{ 'reference-compact': filters.referenceDisplay === 'compact' }">{{ verse.verse }}</strong>
+                  :class="{ 'reference-compact': filters.referenceDisplay === 'compact' }">{{ formatReference(bibleReference(selectedBibleBookName, selectedBibleChapter + ':' + verse.verse)) }}</strong>
                 <div class="verse-lines"
                   :class="{ 'translations-side-by-side': filters.translation2Position === 'side-by-side' && filters.translation2 }">
                   <span v-for="item in verse.translations" :key="item.name" class="verse-text d-block">{{ item.text }}</span>
@@ -172,18 +171,18 @@
                 <div class="mb-3">
                   <label for="mobileBibleTranslation" class="form-label">譯本</label>
                   <select id="mobileBibleTranslation" v-model="mobileFilters.translation" class="form-select form-select-lg">
-                    <option value="ChiUn">ChiUn</option>
-                    <option value="ChiUnL">ChiUnL</option>
-                    <option value="KJV">KJV</option>
+                    <option v-for="translation in translations" :key="translation.code" :value="translation.code">
+                      {{ translation.code }} | {{ translation.title }}
+                    </option>
                   </select>
                 </div>
                 <div class="mb-3">
                   <label for="mobileBibleTranslation2" class="form-label">譯本二</label>
                   <select id="mobileBibleTranslation2" v-model="mobileFilters.translation2" class="form-select form-select-lg">
                     <option value="">不使用</option>
-                    <option value="ChiUn" :disabled="mobileFilters.translation === 'ChiUn'">ChiUn</option>
-                    <option value="ChiUnL" :disabled="mobileFilters.translation === 'ChiUnL'">ChiUnL</option>
-                    <option value="KJV" :disabled="mobileFilters.translation === 'KJV'">KJV</option>
+                    <option v-for="translation in translations" :key="translation.code" :value="translation.code" :disabled="mobileFilters.translation === translation.code">
+                      {{ translation.code }} | {{ translation.title }}
+                    </option>
                   </select>
                 </div>
                 <div class="mb-3">
@@ -244,7 +243,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios@1.11.0/dist/axios.min.js"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script src="js/main.js?v=11"></script>
+  <script src="js/main.js?v=12"></script>
 </body>
 
 </html>

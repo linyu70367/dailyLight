@@ -4,6 +4,17 @@ const { createApp } = Vue;
 // 判斷目前是否為獨立的 bible.html 頁面。
 const isBiblePage = window.location.pathname.endsWith('/bible.html');
 
+const referenceAbbreviations = [
+  'Gen.', 'Exo.', 'Lev.', 'Num.', 'Deut.', 'Josh.', 'Judg.', 'Ruth',
+  'I Sam.', 'II Sam.', 'I Kgs.', 'II Kgs.', 'I Chr.', 'II Chr.', 'Ezra', 'Neh.', 'Esth.',
+  'Job', 'Psa.', 'Prov.', 'Eccl.', 'Song', 'Isa.', 'Jer.', 'Lam.', 'Ezek.', 'Dan.',
+  'Hos.', 'Joel', 'Amos', 'Obad.', 'Jon.', 'Mic.', 'Nah.', 'Hab.', 'Zeph.', 'Hag.', 'Zech.', 'Mal.',
+  'Matt.', 'Mark', 'Luke', 'John', 'Acts', 'Rom.', 'I Cor.', 'II Cor.', 'Gal.',
+  'Eph.', 'Phil.', 'Col.', 'I Thes.', 'II Thes.', 'I Tim.', 'II Tim.', 'Tit.', 'Philem.',
+  'Heb.', 'Jas.', 'I Pet.', 'II Pet.', 'I John', 'II John', 'III John', 'Jude', 'Rev.'
+];
+const referenceAliases = { eze: 'Ezekiel', phi: 'Philippians', ps: 'Psalms' };
+
 // createApp 裡分成 data、computed、watch、mounted、methods 五個主要區域。
 createApp({
   // data 放置畫面會使用或修改的資料。
@@ -13,6 +24,17 @@ createApp({
       dailyEntries: [],
       indexEntries: [],
       bannerEntries: [],
+      travelPlan: null,
+      travelPlanRequest: null,
+      travelError: '',
+      styleRequestId: 0,
+      translations: [
+        { code: 'ChiUn', title: '和合本' },
+        { code: 'ChiUnL', title: '文理和合本' },
+        { code: 'KJV', title: 'King James Version' },
+        { code: 'BSB', title: 'Berean Standard Bible' },
+        { code: 'BBE', title: 'Bible in Basic English' }
+      ],
       // 書卷快取格式：bibleCache[譯本][書卷名稱]。
       // 已載入的 JSON 會留在這裡，切換章節時就不必再次下載。
       bibleCache: {},
@@ -97,7 +119,7 @@ createApp({
         { name: 'III John', zh: '約翰三書', testament: 'new' },
         { name: 'Jude', zh: '猶大書', testament: 'new' },
         { name: 'Revelation of John', zh: '啟示錄', testament: 'new' }
-      ],
+      ].map((book, index) => ({ ...book, abbreviation: referenceAbbreviations[index] })),
       // 桌面版及目前真正生效的篩選條件。
       filters: {
         translation: 'ChiUn',
@@ -105,10 +127,11 @@ createApp({
         // follow 為上下跟隨；side-by-side 為左右並排。
         translation2Position: 'follow',
         date: '',
+        travelDate: '',
         period: 'morning',
         style: isBiblePage ? 'style4' : 'style2',
         fontSize: 'font-size-normal',
-        referenceDisplay: 'hide',
+        referenceDisplay: 'show',
         theme: 'theme-night'
       },
       // 手機版暫存條件，按下「套用」後才會複製到 filters。
@@ -118,10 +141,11 @@ createApp({
         // 手機版先暫存在這裡，按下「套用」後才更新正式設定。
         translation2Position: 'follow',
         date: '',
+        travelDate: '',
         period: 'morning',
         style: isBiblePage ? 'style4' : 'style2',
         fontSize: 'font-size-normal',
-        referenceDisplay: 'hide',
+        referenceDisplay: 'show',
         theme: 'theme-night'
       },
       selectedFont: 'zen-old-mincho'
@@ -161,7 +185,14 @@ createApp({
       return this.currentBannerIndexEntry?.index || [];
     },
 
+    currentTravelReadings() {
+      return this.travelPlan?.[this.filters.travelDate] || [];
+    },
+
     activeIndexItems() {
+      if (this.filters.style === 'style5') {
+        return this.travelSections.flatMap(section => section.items);
+      }
       return this.filters.style === 'style3' ? this.currentBannerIndexItems : this.currentIndexItems;
     },
 
@@ -280,21 +311,55 @@ createApp({
         const items = this.getBannerItemsForReference(reference);
         return {
           reference,
-          verses: items.map(item => ({
-            reference: `${item.name} ${item.chapters}:${item.verse}`,
-            translations: this.selectedTranslations.map(translation => ({
-              name: translation,
-              text: this.findVerseText(this.bibleCache[translation][item.name], item, translation)
-            }))
-          }))
+          verses: this.translateReadingVerses(items)
         };
       });
+    },
+
+    travelSections() {
+      // [書卷, 起始章, 起始節, 結束節, 結束章]，null 表示讀整章或沒有跨章。
+      return this.currentTravelReadings.map(([name, chapter, firstVerse, lastVerse, lastChapter]) => {
+        const book = this.bibleCache[this.filters.translation]?.[name];
+        const first = parseInt(firstVerse, 10);
+        const last = parseInt(lastVerse, 10);
+        const items = (book?.chapters || [])
+          .filter(entry => entry.chapter >= chapter && entry.chapter <= (lastChapter ?? chapter))
+          .flatMap(entry => entry.verses
+            .filter(verse => firstVerse === null || (verse.verse >= first && verse.verse <= last))
+            .map(verse => ({ name, chapters: entry.chapter, verse: verse.verse })));
+        let range = String(chapter);
+        if (lastChapter !== null) range += '-' + lastChapter;
+        if (firstVerse !== null) {
+          range += ':' + firstVerse;
+          if (lastVerse !== firstVerse) range += '-' + lastVerse;
+        }
+        return {
+          reference: this.bibleReference(name, range),
+          includesPartialVerse: typeof firstVerse === 'string' || typeof lastVerse === 'string',
+          items
+        };
+      });
+    },
+
+    readingPlanSections() {
+      if (this.filters.style === 'style3') return this.bannerTranslatedSections;
+      return this.travelSections.map(({ reference, includesPartialVerse, items }) => ({
+        reference,
+        includesPartialVerse,
+        verses: this.translateReadingVerses(items)
+      }));
     }
   },
 
   // watch 監聽篩選條件；條件改變時清除舊結果並載入需要的書卷。
   watch: {
     'filters.date'() {
+      this.clearVerseDetail();
+      this.ensureStyleBible();
+    },
+
+    'filters.travelDate'() {
+      if (this.filters.style !== 'style5') return;
       this.clearVerseDetail();
       this.ensureStyleBible();
     },
@@ -351,6 +416,7 @@ createApp({
         this.dailyEntries = dailyResponse.data;
         this.indexEntries = indexResponse.data;
         this.bannerEntries = bannerResponse.data;
+        this.filters.travelDate = this.getLocalDate();
         this.filters.date = this.getInitialDate();
         this.prepareMobileFilters();
       } catch (error) {
@@ -360,12 +426,15 @@ createApp({
       }
     },
 
-    getInitialDate() {
-      // now 是使用者裝置目前的日期與時間。
+    getLocalDate() {
       const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      return now.getFullYear() + '-' + month + '-' + day;
+    },
 
-      // today 轉成資料檔使用的 MM-DD 格式，例如 08-17。
-      const today = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    getInitialDate() {
+      const today = this.getLocalDate().slice(5);
       return this.dates.includes(today) ? today : (this.dates[0] || '01-01');
     },
 
@@ -404,33 +473,89 @@ createApp({
       return book;
     },
 
-    // 每日亮光、屬靈健保書及整本聖經模式會載入畫面需要的書卷。
+    async loadTravelPlan() {
+      if (this.travelPlan) return;
+      if (!this.travelPlanRequest) {
+        this.travelPlanRequest = axios.get('data/bible-travel-plan.json')
+          .then(response => { this.travelPlan = response.data; })
+          .finally(() => { this.travelPlanRequest = null; });
+      }
+      await this.travelPlanRequest;
+    },
+
     async ensureStyleBible() {
-      if (this.filters.style === 'style1') return;
-
-      // translations 複製目前的一至兩個譯本，供這次非同步載入使用。
-      const translations = [...this.selectedTranslations];
-
-      // requestKey 用來辨識載入期間使用者是否又切換了譯本。
-      const requestKey = translations.join('|');
-      this.styleLoading = true;
+      const requestId = ++this.styleRequestId;
+      const { style } = this.filters;
+      this.styleLoading = style !== 'style1';
       this.styleError = '';
+      this.travelError = '';
+      if (style === 'style1') return;
 
+      const translations = [...this.selectedTranslations];
       try {
-        // bookNames 是目前畫面真正需要下載的書卷名稱，避免一次載入整本聖經。
-        const bookNames = this.filters.style === 'style4'
-          ? (this.selectedBibleBookName ? [this.selectedBibleBookName] : [])
-          : [...new Set(this.activeIndexItems.map(item => item.name))];
+        if (style === 'style5') {
+          try {
+            await this.loadTravelPlan();
+          } catch (error) {
+            if (requestId === this.styleRequestId) {
+              this.travelError = this.getErrorMessage(error, '無法載入三年讀經計畫 | 聖經旅行團的進度。');
+            }
+            return;
+          }
+          if (requestId !== this.styleRequestId) return;
+        }
+
+        let bookNames;
+        if (style === 'style4') {
+          bookNames = this.selectedBibleBookName ? [this.selectedBibleBookName] : [];
+        } else if (style === 'style5') {
+          bookNames = this.currentTravelReadings.map(([name]) => name);
+        } else {
+          bookNames = this.activeIndexItems.map(item => item.name);
+        }
+        const uniqueBooks = [...new Set(bookNames)];
         await Promise.all(translations.flatMap(translation => (
-          bookNames.map(bookName => this.loadBibleBook(translation, bookName))
+          uniqueBooks.map(bookName => this.loadBibleBook(translation, bookName))
         )));
       } catch (error) {
-        if (requestKey === this.selectedTranslations.join('|')) {
-          this.styleError = this.getErrorMessage(error, `無法載入 ${translations.join('、')} 經文。`);
+        if (requestId === this.styleRequestId) {
+          this.styleError = this.getErrorMessage(error, '無法載入 ' + translations.join('、') + ' 經文。');
         }
       } finally {
-        if (requestKey === this.selectedTranslations.join('|')) this.styleLoading = false;
+        if (requestId === this.styleRequestId) this.styleLoading = false;
       }
+    },
+
+    bibleReference(bookName, range) {
+      const book = this.bibleBooks.find(entry => entry.name === bookName);
+      return (book?.abbreviation || bookName) + ' ' + range;
+    },
+
+    formatReference(reference) {
+      return reference.split(';').map(part => {
+        const text = part.trim();
+        const match = text.match(/^(.+?)(\s*(?:\d|l(?=:)).*)$/);
+        if (!match) return text;
+        const label = match[1].trim();
+        const key = label.toLowerCase().replaceAll('.', '');
+        const book = this.bibleBooks.find(entry => (
+          entry.name.toLowerCase() === key ||
+          entry.abbreviation.toLowerCase().replaceAll('.', '') === key ||
+          entry.name === referenceAliases[key]
+        ));
+        const range = match[2].trim().replace(/^l:/, '1:');
+        return book ? book.zh + ' ' + label + ' ' + range : text;
+      }).join('; ');
+    },
+
+    translateReadingVerses(items) {
+      return items.map(item => ({
+        reference: this.bibleReference(item.name, item.chapters + ':' + item.verse),
+        translations: this.selectedTranslations.map(translation => ({
+          name: translation,
+          text: this.findVerseText(this.bibleCache[translation]?.[item.name], item, translation)
+        }))
+      }));
     },
 
     // 選擇聖經書卷後載入譯本資料，並預設顯示第一章。
@@ -565,7 +690,7 @@ createApp({
 
         this.selectedVerseKey = this.getVerseKey(item);
         this.selectedVerse = {
-          reference: `${item.name} ${item.chapters}:${item.verse}`,
+          reference: this.bibleReference(item.name, item.chapters + ':' + item.verse),
           bookName: item.name,
           chapter: item.chapters,
           translations: verseTranslations

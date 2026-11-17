@@ -236,17 +236,9 @@ body {
 
 .bible-chapter-list > li {
   display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr);
-  gap: 0.5rem;
-  align-items: start;
+  gap: 0.25rem;
 }
 
-/* 隱藏節數後只保留經文欄，經文就不會落入原本 2.25rem 的第一欄。 */
-.bible-chapter-list > li.reference-hidden {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-/* 經文文字填滿扣除節數欄位後的所有剩餘寬度。 */
 .verse-lines {
   width: 100%;
   min-width: 0;
@@ -254,7 +246,6 @@ body {
 
 .verse-number {
   color: var(--theme-accent);
-  text-align: right;
   line-height: 1.8;
 }
 
